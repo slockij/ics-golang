@@ -17,18 +17,7 @@ func TestLoadCalendar(t *testing.T) {
 
 	parser.Load(string(calBytes))
 
-	parseErrors, err := parser.GetErrors()
-	if err != nil {
-		t.Errorf("Failed to wait the parse of the calendars ( %s )", err)
-	}
-	for i, pErr := range parseErrors {
-		t.Errorf("Parsing Error №%d: %s", i, pErr)
-	}
-
-	calendars, errCal := parser.GetCalendars()
-	if errCal != nil {
-		t.Errorf("Failed to get calendars ( %s )", errCal)
-	}
+	calendars := parser.GetCalendars()
 	if len(calendars) != 1 {
 		t.Errorf("Expected 1 calendar, found %d calendars", len(calendars))
 	}
@@ -42,39 +31,15 @@ func TestNewParser(t *testing.T) {
 	}
 }
 
-func TestParsing0Calendars(t *testing.T) {
-	parser := New()
-	parser.Wait()
-
-	parseErrors, err := parser.GetErrors()
-
-	if err != nil {
-		t.Errorf("Failed to wait the parse of the calendars ( %s )", err)
-	}
-	for i, pErr := range parseErrors {
-		t.Errorf("Parsing Error №%d: %s", i, pErr)
-	}
-}
-
 func TestParsing1Calendars(t *testing.T) {
 	parser := New()
-	parser.LoadAsyncFromUrl("testCalendars/2eventsCal.ics")
-	parser.Wait()
-
-	parseErrors, err := parser.GetErrors()
+	err := parser.LoadFromUrl("testCalendars/2eventsCal.ics")
 
 	if err != nil {
-		t.Errorf("Failed to wait the parse of the calendars ( %s )", err)
-	}
-	for i, pErr := range parseErrors {
-		t.Errorf("Parsing Error №%d: %s", i, pErr)
+		t.Errorf("Parsing Error: %s", err)
 	}
 
-	calendars, errCal := parser.GetCalendars()
-
-	if errCal != nil {
-		t.Errorf("Failed to get calendars ( %s )", errCal)
-	}
+	calendars := parser.GetCalendars()
 
 	if len(calendars) != 1 {
 		t.Errorf("Expected 1 calendar, found %d calendars", len(calendars))
@@ -84,24 +49,16 @@ func TestParsing1Calendars(t *testing.T) {
 
 func TestParsing2Calendars(t *testing.T) {
 	parser := New()
-	parser.LoadAsyncFromUrl("testCalendars/2eventsCal.ics")
-	parser.LoadAsyncFromUrl("testCalendars/3eventsNoAttendee.ics")
-	parser.Wait()
-
-	parseErrors, err := parser.GetErrors()
-
+	err := parser.LoadFromUrl("testCalendars/2eventsCal.ics")
 	if err != nil {
-		t.Errorf("Failed to wait the parse of the calendars ( %s )", err)
+		t.Errorf("Parsing Error: %s", err)
 	}
-	for i, pErr := range parseErrors {
-		t.Errorf("Parsing Error №%d: %s", i, pErr)
+	err = parser.LoadFromUrl("testCalendars/3eventsNoAttendee.ics")
+	if err != nil {
+		t.Errorf("Parsing Error: %s", err)
 	}
 
-	calendars, errCal := parser.GetCalendars()
-
-	if errCal != nil {
-		t.Errorf("Failed to get calendars ( %s )", errCal)
-	}
+	calendars := parser.GetCalendars()
 
 	if len(calendars) != 2 {
 		t.Errorf("Expected 2 calendars, found %d calendars", len(calendars))
@@ -111,65 +68,38 @@ func TestParsing2Calendars(t *testing.T) {
 
 func TestParsingNotExistingCalendar(t *testing.T) {
 	parser := New()
-	parser.LoadAsyncFromUrl("testCalendars/notFound.ics")
-	parser.Wait()
-
-	parseErrors, err := parser.GetErrors()
-
-	if err != nil {
-		t.Errorf("Failed to wait the parse of the calendars ( %s )", err)
+	err := parser.LoadFromUrl("testCalendars/notFound.ics")
+	if err == nil {
+		t.Errorf("Parsing Error not found, but expected")
 	}
-	if len(parseErrors) != 1 {
-		t.Errorf("Expected 1 error, found %d in :\n  %#v", len(parseErrors), parseErrors)
-	}
-
 }
 
 func TestParsingNotExistingAndExistingCalendars(t *testing.T) {
 	parser := New()
-	parser.LoadAsyncFromUrl("testCalendars/3eventsNoAttendee.ics")
-	parser.LoadAsyncFromUrl("testCalendars/notFound.ics")
-	parser.Wait()
-
-	parseErrors, err := parser.GetErrors()
-
+	err := parser.LoadFromUrl("testCalendars/3eventsNoAttendee.ics")
 	if err != nil {
-		t.Errorf("Failed to wait the parse of the calendars ( %s )", err)
+		t.Errorf("Parsing Error: %s", err)
 	}
-	if len(parseErrors) != 1 {
-		t.Errorf("Expected 1 error, found %d in :\n  %#v", len(parseErrors), parseErrors)
+	err = parser.LoadFromUrl("testCalendars/notFound.ics")
+	if err == nil {
+		t.Errorf("Parsing Error expected, but not found")
 	}
 
-	calendars, errCal := parser.GetCalendars()
-
-	if errCal != nil {
-		t.Errorf("Failed to get calendars ( %s )", errCal)
-	}
+	calendars := parser.GetCalendars()
 
 	if len(calendars) != 1 {
 		t.Errorf("Expected 1 calendar, found %d calendars", len(calendars))
 	}
-
 }
+
 func TestParsingWrongCalendarUrls(t *testing.T) {
 	parser := New()
-	parser.LoadAsyncFromUrl("http://localhost/goTestFails")
-	parser.Wait()
-
-	parseErrors, err := parser.GetErrors()
-
-	if err != nil {
-		t.Errorf("Failed to wait the parse of the calendars ( %s )", err)
-	}
-	if len(parseErrors) != 1 {
-		t.Errorf("Expected 1 error, found %d in :\n  %#v", len(parseErrors), parseErrors)
+	err := parser.LoadFromUrl("http://localhost/goTestFails")
+	if err == nil {
+		t.Errorf("Parsing Error expected, but not found")
 	}
 
-	calendars, errCal := parser.GetCalendars()
-
-	if errCal != nil {
-		t.Errorf("Failed to get calendars ( %s )", errCal)
-	}
+	calendars := parser.GetCalendars()
 
 	if len(calendars) != 0 {
 		t.Errorf("Expected 0 calendar, found %d calendars", len(calendars))
@@ -178,23 +108,12 @@ func TestParsingWrongCalendarUrls(t *testing.T) {
 
 func TestCalendarInfo(t *testing.T) {
 	parser := New()
-	parser.LoadAsyncFromUrl("testCalendars/2eventsCal.ics")
-	parser.Wait()
-
-	parseErrors, err := parser.GetErrors()
-
+	err := parser.LoadFromUrl("testCalendars/2eventsCal.ics")
 	if err != nil {
-		t.Errorf("Failed to wait the parse of the calendars ( %s )", err)
-	}
-	if len(parseErrors) != 0 {
-		t.Errorf("Expected 0 error, found %d in :\n %#v", len(parseErrors), parseErrors)
+		t.Errorf("Parsing Error: %s", err)
 	}
 
-	calendars, errCal := parser.GetCalendars()
-
-	if errCal != nil {
-		t.Errorf("Failed to get calendars ( %s )", errCal)
-	}
+	calendars := parser.GetCalendars()
 
 	if len(calendars) != 1 {
 		t.Errorf("Expected 1 calendar, found %d calendars", len(calendars))
@@ -254,23 +173,12 @@ func TestCalendarInfo(t *testing.T) {
 
 func TestCalendarEvents(t *testing.T) {
 	parser := New()
-	parser.LoadAsyncFromUrl("testCalendars/2eventsCal.ics")
-	parser.Wait()
-
-	parseErrors, err := parser.GetErrors()
-
+	err := parser.LoadFromUrl("testCalendars/2eventsCal.ics")
 	if err != nil {
-		t.Errorf("Failed to wait the parse of the calendars ( %s )", err)
-	}
-	if len(parseErrors) != 0 {
-		t.Errorf("Expected 0 error, found %d in :\n  %#v", len(parseErrors), parseErrors)
+		t.Errorf("Parsing Error: %s", err)
 	}
 
-	calendars, errCal := parser.GetCalendars()
-
-	if errCal != nil {
-		t.Errorf("Failed to get calendars ( %s )", errCal)
-	}
+	calendars := parser.GetCalendars()
 
 	if len(calendars) != 1 {
 		t.Errorf("Expected 1 calendar, found %d calendars", len(calendars))
@@ -379,23 +287,12 @@ func TestCalendarEvents(t *testing.T) {
 
 func TestCalendarEventAttendees(t *testing.T) {
 	parser := New()
-	parser.LoadAsyncFromUrl("testCalendars/2eventsCal.ics")
-	parser.Wait()
-
-	parseErrors, err := parser.GetErrors()
-
+	err := parser.LoadFromUrl("testCalendars/2eventsCal.ics")
 	if err != nil {
-		t.Errorf("Failed to wait the parse of the calendars ( %s )", err)
-	}
-	if len(parseErrors) != 0 {
-		t.Errorf("Expected 0 error, found %d in :\n  %#v", len(parseErrors), parseErrors)
+		t.Errorf("Parsing Error: %s", err)
 	}
 
-	calendars, errCal := parser.GetCalendars()
-
-	if errCal != nil {
-		t.Errorf("Failed to get calendars ( %s )", errCal)
-	}
+	calendars := parser.GetCalendars()
 
 	if len(calendars) != 1 {
 		t.Errorf("Expected 1 calendar, found %d calendars", len(calendars))
@@ -466,21 +363,12 @@ func TestCalendarEventAttendees(t *testing.T) {
 
 func TestCalendarMultidayEvent(t *testing.T) {
 	parser := New()
-	parser.LoadAsyncFromUrl("testCalendars/multiday.ics")
-	parser.Wait()
-
-	parseErrors, err := parser.GetErrors()
+	err := parser.LoadFromUrl("testCalendars/multiday.ics")
 	if err != nil {
-		t.Errorf("Failed to wait the parse of the calendars ( %s )", err)
-	}
-	if len(parseErrors) != 0 {
-		t.Errorf("Expected 0 error, found %d in :\n  %#v", len(parseErrors), parseErrors)
+		t.Errorf("Parsing Error: %s", err)
 	}
 
-	calendars, errCal := parser.GetCalendars()
-	if errCal != nil {
-		t.Errorf("Failed to get calendars ( %s )", errCal)
-	}
+	calendars := parser.GetCalendars()
 
 	if len(calendars) != 1 {
 		t.Errorf("Expected 1 calendar, found %d calendars", len(calendars))
@@ -522,23 +410,12 @@ func TestCalendarMultidayEvent(t *testing.T) {
 
 func TestParsingDateFormats(t *testing.T) {
 	parser := New()
-	parser.LoadAsyncFromUrl("testCalendars/dateFormatCal.ics")
-	parser.Wait()
-
-	parseErrors, err := parser.GetErrors()
-
+	err := parser.LoadFromUrl("testCalendars/dateFormatCal.ics")
 	if err != nil {
-		t.Errorf("Failed to wait the parse of the calendars ( %s )", err)
-	}
-	for i, pErr := range parseErrors {
-		t.Errorf("Parsing Error №%d: %s", i, pErr)
+		t.Errorf("Parsing Error: %s", err)
 	}
 
-	calendars, errCal := parser.GetCalendars()
-
-	if errCal != nil {
-		t.Errorf("Failed to get calendars ( %s )", errCal)
-	}
+	calendars := parser.GetCalendars()
 
 	if len(calendars) != 1 {
 		t.Errorf("Expected 1 calendar, found %d calendars", len(calendars))

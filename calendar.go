@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"sync"
 	"time"
 )
 
@@ -18,7 +17,6 @@ type Calendar struct {
 	eventsByDate      map[string][]*Event
 	eventByID         map[string]*Event
 	eventByImportedID map[string]*Event
-	mutex             sync.Mutex
 }
 
 type Events []Event
@@ -82,10 +80,6 @@ func (c *Calendar) GetTimezone() *time.Location {
 
 //  add event to the calendar
 func (c *Calendar) SetEvent(event Event) (*Calendar, error) {
-	//  lock so that the events array doesn't change its size from other goruote
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
 	// reference to the calendar
 	if event.GetCalendar() == nil || event.GetCalendar() != c {
 		event.SetCalendar(c)

@@ -1,14 +1,12 @@
 package ics
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -26,12 +24,9 @@ var (
 )
 
 type Parser struct {
-	errorsOccured   []error
 	parsedCalendars []*Calendar
 	parsedEvents    []*Event
 	statusCalendars int
-	wg              sync.WaitGroup
-	mutex           sync.Mutex
 }
 
 func init() {
@@ -74,32 +69,20 @@ func init() {
 // creates new parser
 func New() *Parser {
 	p := new(Parser)
-	p.errorsOccured = []error{}
 	p.parsedCalendars = []*Calendar{}
 	p.parsedEvents = []*Event{}
 
 	return p
 }
 
-func (p *Parser) LoadAsyncFromUrl(link string) {
-	// mark calendar in the wait group as not parsed
-	p.wg.Add(1)
-	go func() {
-		// mark calendar in the wait group as  parsed
-		defer p.wg.Done()
-		// marks that we have statusCalendars +1 calendars to be parsed
-		p.atomicStatusCalendars(1)
-		defer p.atomicStatusCalendars(-1)
+func (p *Parser) LoadFromUrl(link string) error {
+	iCalContent, err := p.getICal(link)
+	if err != nil {
+		return err
+	}
 
-		iCalContent, err := p.getICal(link)
-		if err != nil {
-			p.atomicAddError(err)
-			return
-		}
-
-		// parse the ICal calendar
-		p.parseICalContent(iCalContent, link)
-	}()
+	// parse the ICal calendar
+	return p.parseICalContent(iCalContent, link)
 }
 
 // Load calender from content
@@ -108,35 +91,8 @@ func (p *Parser) Load(iCalContent string) {
 }
 
 // returns the chan where will be received events
-func (p *Parser) GetCalendars() ([]*Calendar, error) {
-	if !p.Done() {
-		return nil, errors.New("Calendars not parsed")
-	}
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	return p.parsedCalendars, nil
-}
-
-// returns the array with the errors occurred while parsing the events
-func (p *Parser) GetErrors() ([]error, error) {
-	if !p.Done() {
-		return nil, errors.New("Calendars not parsed")
-	}
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	return p.errorsOccured, nil
-}
-
-// is everything is parsed
-func (p *Parser) Done() bool {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	return p.statusCalendars == 0
-}
-
-// wait until everything is parsed
-func (p *Parser) Wait() {
-	p.wg.Wait()
+func (p *Parser) GetCalendars() []*Calendar {
+	return p.parsedCalendars
 }
 
 //  get the data from the calendar
@@ -159,8 +115,7 @@ func (p *Parser) getICal(url string) (string, error) {
 		if fileExists(url) {
 			fileName = url
 		} else {
-			err := fmt.Sprintf("File %s does not exists", url)
-			return "", errors.New(err)
+			return "", fmt.Errorf("File %s does not exists", url)
 		}
 	}
 
@@ -181,7 +136,7 @@ func (p *Parser) getICal(url string) (string, error) {
 // ======================== CALENDAR PARSING ===================
 
 // parses the iCal formated string to a calendar object
-func (p *Parser) parseICalContent(iCalContent, url string) {
+func (p *Parser) parseICalContent(iCalContent, url string) error {
 	ical := NewCalendar()
 
 	// split the data into calendar info and events data
@@ -197,9 +152,8 @@ func (p *Parser) parseICalContent(iCalContent, url string) {
 	// parse the events and add them to ical
 	p.parseEvents(ical, eventsData)
 
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
 	p.parsedCalendars = append(p.parsedCalendars, ical)
+	return nil
 }
 
 // explodes the ICal content to array of events and calendar info
@@ -235,7 +189,6 @@ func (p *Parser) parseICalTimezone(iCalContent string) *time.Location {
 
 	// if fails with the timezone => go with UTC
 	if err != nil {
-		p.errorsOccured = append(p.errorsOccured, err)
 		loc, _ = time.LoadLocation("UTC")
 	}
 	return loc
@@ -643,16 +596,4 @@ func (p *Parser) extractData(r *regexp.Regexp, str string) string {
 		return data[1]
 	}
 	return ""
-}
-
-func (p *Parser) atomicStatusCalendars(value int) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	p.statusCalendars += value
-}
-
-func (p *Parser) atomicAddError(err error) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	p.errorsOccured = append(p.errorsOccured, err)
 }
